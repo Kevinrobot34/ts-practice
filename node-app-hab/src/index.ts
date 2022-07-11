@@ -2,25 +2,42 @@ const printLine = (text: string, breakLine: boolean = true) => {
   process.stdout.write(text + (breakLine ? '\n' : ''))
 }
 
-const promptInput = async (text: string) => {
-  printLine(`\n${text}\n> `, false)
+const readLine = async () => {
   const input: string = await new Promise((resolve) => process.stdin.once('data', (data) => resolve(data.toString())))
   return input.trim()
 }
 
-type Mode = 'normal' | 'hard'
+const promptInput = async (text: string) => {
+  printLine(`\n${text}\n> `, false)
+  return readLine()
+}
+
+const promptSelect = async <T extends string>(text: string, values: readonly T[]): Promise<T> => {
+  printLine(`\n${text}`)
+  values.forEach((value) => {
+    printLine(`- ${value}`)
+  })
+  printLine(`> `, false)
+
+  const input = (await readLine()) as T
+  if (values.includes(input)) {
+    return input
+  } else {
+    return promptSelect<T>(text, values)
+  }
+}
+
+const modes = ['normal', 'hard'] as const
+type Mode = typeof modes[number]
 
 class HitAndBlow {
   private readonly answerSource = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
   private answer: string[] = []
   private tryCount = 0
-  private mode: Mode
+  private mode: Mode = 'normal'
 
-  constructor(mode: Mode) {
-    this.mode = mode
-  }
-
-  setting() {
+  async setting() {
+    this.mode = (await promptSelect<Mode>('モードを入力してください', modes))
     const answerLength = this.getAnswerLength()
 
     while (this.answer.length < answerLength) {
@@ -47,7 +64,7 @@ class HitAndBlow {
   async play() {
     const separator = ','
     const answerLength = this.getAnswerLength()
-    const inputArr = (await (await promptInput(`"${separator}"区切りで${answerLength}つの数字を入力してください`)).split(separator))
+    const inputArr = (await promptInput(`"${separator}"区切りで${answerLength}つの数字を入力してください`)).split(separator)
 
     if (!this.validate(inputArr)) {
       printLine('無効な入力です')
@@ -101,9 +118,9 @@ interface HitAndBlowInterface {
 
 
 ; (async () => {
-  const hitAndBlow = new HitAndBlow('hard')
+  const hitAndBlow = new HitAndBlow()
 
-  hitAndBlow.setting()
+  await hitAndBlow.setting()
   await hitAndBlow.play()
   hitAndBlow.end()
 })()
